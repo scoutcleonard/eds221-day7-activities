@@ -1,0 +1,90 @@
+---
+title: "Bird Joins"
+author: "Scout Leonard"
+date: "8/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+
+
+bird_observations <- read_csv(here::here("data","knb-lter-cap", "52_pp52_birds_1.csv"))
+
+sites <- read_csv(here::here("data", "knb-lter-cap", "52_pp52_sites_1.csv"))
+
+surveys <- read_csv(here::here("data", "knb-lter-cap", "52_pp52_surveys_1.csv"))
+
+taxalist <- read_csv(here::here("data", "knb-lter-cap", "52_pp52_taxalist_1.csv"))
+```
+
+
+##Task 1: Joins on birds
+
+**Create a subset of `bird_observations` called `birds_subset` that only contains observation for birds with species id "BCHO" and "RWBL." and from sites with ID "LI-W" and "NU-C"
+
+```{r}
+birds_subset <- bird_observations %>% 
+  filter(species_id %in% c("BHCO", "RWBL"),
+         site_id %in% c("LI-W", "NU-C"))
+```
+
+### Left Join practice
+
+```{r}
+birds_left <- left_join(birds_subset, sites, by = "site_id") 
+
+birds_left_1 <- left_join(birds_left, taxalist, by = "species_id")
+```
+
+### Full Join practice 
+
+I expect a `full_join()` between `birds_subset` and `sites` to contain all of the observations in the first df, the second, and both, with NA values for variables missing from observations in one or the other. 
+
+```{r}
+birds_full <- full_join(birds_subset, sites, by = "site_id")
+```
+
+### Inner join practice
+
+I expect an `inner_join()` between `birds_subset` and `taxalist` to contain all of the observation from both dfs. 
+
+```{r}
+birds_inner <- inner_join(birds_subset, taxalist, by = "species_id")
+```
+
+If instead of `inner_join()` I used `left_join()`, I would expect the data frame to include all of the elements from the birds subset df with additional data from the elements that match in the taxalist df. 
+## Task 2: Data Wrangling and visualization with birds 
+
+```{r}
+bird_observations_1 <- bird_observations %>% 
+  rename(bird_obs_notes = notes)
+
+all_obs_birds_1 <- full_join(bird_observations_1, taxalist, by = "species_id")
+
+all_obs_birds_2 <- full_join(all_obs_birds_1, sites, by = "site_id")
+
+all_obs_birds_3 <- full_join(all_obs_birds_2, surveys, by = c("site_id", "survey_id"))
+
+all_obs_birds <- all_obs_birds_3 %>% 
+  select(survey_date, common_name, park_name, bird_count)
+```
+
+Use `lubridate::month()` to add a new column called `survey_month`, containing only the month number. Then convert the month to a factor (again with `mutate()`)
+
+```{r}
+all_obs_birds_month <- all_obs_birds %>% 
+  mutate(survey_month = lubridate::month(survey_date)) %>% 
+  mutate(survey_month = as.factor(survey_month)) %>% 
+  dplyr::relocate(survey_month, .after = survey_date)
+
+total_birds <- all_obs_birds_month %>% 
+  group_by(park_name, survey_month) %>% 
+  summarize(total_count = sum(bird_count, na.rm = TRUE)) %>% 
+  filter(park_name %in% c("Lindo","Orme","Palomino","Sonrisa"))
+```
+
+
